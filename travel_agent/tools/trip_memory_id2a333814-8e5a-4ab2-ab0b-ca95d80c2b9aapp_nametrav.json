@@ -1,0 +1,39 @@
+{
+  "passengers": [
+    {
+      "name": "Karthik",
+      "nationality": "UK"
+    },
+    {
+      "name": "Anika",
+      "nationality": "USA"
+    },
+    {
+      "name": "Arun",
+      "nationality": "India"
+    }
+  ],
+  "flights": [
+    {
+      "airline_info": "AI130",
+      "route": "LHR to GOI",
+      "scheduling": "Dep: Jan 20, 08:30 PM (LHR) \u279d Arr: Jan 21, 04:50 PM (GOI) | \u23f3 14H50M",
+      "passengers": "Karthik (UK), Anika (USA), Arun (India)",
+      "price": "$401.70"
+    },
+    {
+      "airline_info": "KU382",
+      "route": "DEL to LHR",
+      "scheduling": "Dep: Jan 31, 03:00 AM (DEL) \u279d Arr: Jan 31, 04:05 PM (LHR) | \u23f3 18H35M",
+      "passengers": "Karthik (UK), Arun (India)",
+      "price": "$259.46"
+    },
+    {
+      "airline_info": "AI2448",
+      "route": "GOI to DEL",
+      "scheduling": "Dep: Jan 30, 10:00 PM (GOI) \u279d Arr: Jan 31, 12:40 AM (DEL) | \u23f3 2H40M",
+      "passengers": "Karthik (UK), Anika (USA), Arun (India)",
+      "price": "$124.10"
+    }
+  ]
+}
