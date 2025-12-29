@@ -77,7 +77,7 @@ def search_hotels(tool_context: ToolContext, location: str, check_in: str = None
         else:
             h_class = "4-Star Luxury"
             
-        rice = "N/A"
+        price = "N/A"
         
         def clean_price(p_obj):
             if isinstance(p_obj, dict):
