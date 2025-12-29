@@ -8,42 +8,13 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.append(current_dir)
 
-from sub_agents.flight_search_agent import flight_search_agent
-from sub_agents.inspiration_agent import inspiration_agent
+from agents.inspiration.inspiration_agent import inspiration_agent
+from agents.planning.planning_agent import planning_agent
+from agents.booking.booking_agent import booking_agent
+
 
 load_dotenv()
 model_name = os.getenv("MODEL")
-
-
-itinerary_agent = Agent(
-    name="itinerary_agent",
-    model=model_name,
-    description="Builds day-by-day itineraries.",
-    instruction="Create detailed daily plans."
-)
-
-hotel_search_agent = Agent(
-    name="hotel_search_agent",
-    model=model_name,
-    description="Searches for hotel options.",
-    instruction="Find hotels that match the user's budget and location preferences."
-)
-
-planning_agent = Agent(
-    name="planning_agent",
-    model=model_name,
-    description="Plans the logistics (flights, hotels, itinerary).",
-    instruction="Once a destination is picked, use your sub-agents to build the trip components.",
-    sub_agents=[flight_search_agent, hotel_search_agent, itinerary_agent] 
-)
-
-booking_agent = Agent(
-    name="booking_agent",
-    model=model_name,
-    description="Handles reservations and payments.",
-    instruction="Finalize the booking and take payment.",
-)
-
 
 root_agent = Agent(
     name="root_agent",
@@ -70,6 +41,12 @@ root_agent = Agent(
 
     4. **IF User asks for specific logistics (Flights/Hotels):**
        - Transfer directly to 'planning_agent'.
+   
+    **5. BOOKING PHASE (The Final Handoff):**
+       - **TRIGGER:** If the `planning_agent` (or any sub-agent) says: **"Connecting you to the Booking System..."**
+       - **ACTION:** Immediately transfer to `booking_agent`.
+       - **SAY:** "Transferring you to the Booking Desk."
+       - **Call:** `transfer_to_agent(booking_agent)`.
     """,
     generate_content_config=types.GenerateContentConfig(temperature=0),
     sub_agents=[inspiration_agent, planning_agent, booking_agent]

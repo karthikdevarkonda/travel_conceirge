@@ -1,198 +1,231 @@
-import json
-import os
 import re
-import traceback
+from typing import Any
 from google.adk.tools.tool_context import ToolContext
 
-def _get_db_path(context: ToolContext):
-    session_id = "default"
-    try:
-        if context:
-            if hasattr(context, 'session_id') and context.session_id:
-                session_id = str(context.session_id)
-            elif hasattr(context, 'session') and context.session:
-                session_id = str(context.session)
-    except:
-        pass
-    
-    session_id = str(session_id)
-    
-    session_id = "".join(c for c in session_id if c.isalnum() or c in ('-', '_'))
-    
-    if len(session_id) > 50:
-        session_id = session_id[:50]
-        
-    if not session_id: 
-        session_id = "default"
-        
-    path = os.path.join(os.path.dirname(__file__), f'trip_memory_{session_id}.json')
-    print(f"DEBUG: Memory File Path -> {path}")
-    return path
+def memorize_list(key: str, value: Any, tool_context: ToolContext):
+    """Safely appends a value to a list in the session state."""
+    mem_dict = tool_context.state
+    if key not in mem_dict: mem_dict[key] = []
+    if not isinstance(mem_dict[key], list): mem_dict[key] = [mem_dict[key]]
+    if value not in mem_dict[key]: mem_dict[key].append(value)
+    return {"status": f'Stored "{key}": "{value}"'}
 
-def _load_db(context: ToolContext):
-    file_path = _get_db_path(context)
-    if not os.path.exists(file_path):
-        return {"passengers": [], "flights": []}
-    try:
-        with open(file_path, 'r') as f:
-            return json.load(f)
-    except:
-        return {"passengers": [], "flights": []}
+def memorize(key: str, value: Any, tool_context: ToolContext):
+    tool_context.state[key] = value
+    return {"status": f'Stored "{key}": "{value}"'}
 
-def _save_db(context: ToolContext, data):
-    file_path = _get_db_path(context)
-    try:
-        with open(file_path, 'w') as f:
-            json.dump(data, f, indent=2)
-        print("DEBUG: Database successfully written to disk.")
-    except Exception as e:
-        print(f"CRITICAL ERROR writing DB: {e}")
-        raise e
+def forget(key: str, value: Any, tool_context: ToolContext):
+    if key not in tool_context.state: return {"status": f'Key "{key}" not found.'}
+    current = tool_context.state[key]
+    if isinstance(current, list):
+        if value in current:
+            current.remove(value)
+            return {"status": f'Removed "{value}" from "{key}"'}
+    elif str(current) == str(value):
+        del tool_context.state[key]
+        return {"status": f'Cleared "{key}"'}
+    return {"status": f'Value not found in "{key}"'}
 
 def add_passengers_bulk(tool_context: ToolContext, passenger_string: str) -> str:
     print(f"DEBUG: Adding passengers: {passenger_string}")
     try:
-        db = _load_db(tool_context)
-        if "passengers" not in db: db["passengers"] = []
-        
         clean_text = passenger_string.replace("\n", ",").replace(" and ", ",")
         raw_segments = clean_text.split(",")
-        
+        current_passengers = tool_context.state.get("passengers", [])
+        existing_set = {(p['name'].lower(), p['nationality'].lower()) for p in current_passengers}
         added_count = 0
-        current_set = {(p['name'].lower(), p['nationality'].lower()) for p in db["passengers"]}
-
         for segment in raw_segments:
             segment = segment.strip()
             if not segment: continue
-
             name, nat = "", ""
-            if " from " in segment:
-                parts = segment.split(" from ")
-                name, nat = parts[0].strip(), parts[1].strip()
-            elif "(" in segment and ")" in segment:
-                name = segment.split("(")[0].strip()
-                nat = segment.split("(")[1].replace(")", "").strip()
-            elif " - " in segment:
-                parts = segment.split(" - ")
-                name, nat = parts[0].strip(), parts[1].strip()
-            else:
-                parts = segment.split(" ")
-                if len(parts) >= 2:
-                    nat = parts[-1]
-                    name = " ".join(parts[:-1])
-
+            if " from " in segment: parts = segment.split(" from "); name, nat = parts[0].strip(), parts[1].strip()
+            elif "(" in segment and ")" in segment: name = segment.split("(")[0].strip(); nat = segment.split("(")[1].replace(")", "").strip()
+            elif " - " in segment: parts = segment.split(" - "); name, nat = parts[0].strip(), parts[1].strip()
+            else: parts = segment.split(" "); name = " ".join(parts[:-1]); nat = parts[-1] if len(parts) >= 2 else ""
             if name and nat:
-                if (name.lower(), nat.lower()) not in current_set:
-                    db["passengers"].append({"name": name, "nationality": nat})
-                    current_set.add((name.lower(), nat.lower()))
+                if (name.lower(), nat.lower()) not in existing_set:
+                    current_passengers.append({"name": name, "nationality": nat})
+                    existing_set.add((name.lower(), nat.lower()))
                     added_count += 1
-        
-        _save_db(tool_context, db)
+        tool_context.state["passengers"] = current_passengers
         return f"SUCCESS: Added {added_count} passengers. SYSTEM COMMAND: Do not loop. IMMEDIATELY call 'save_flight_selection'."
-
-    except Exception as e:
-        return f"ERROR adding passengers: {str(e)}"
+    except Exception as e: return f"ERROR: {str(e)}"
 
 def get_passengers(tool_context: ToolContext) -> str:
-    try:
-        db = _load_db(tool_context)
-        if not db.get("passengers"): return "No passengers found."
-        return "\n".join([f"{i+1}. {p['name']} ({p['nationality']})" for i, p in enumerate(db["passengers"])])
-    except:
-        return "No passengers found."
+    passengers = tool_context.state.get("passengers", [])
+    if not passengers: return "No passengers found."
+    return "\n".join([f"{i+1}. {p['name']} ({p['nationality']})" for i, p in enumerate(passengers)])
 
 
-def save_flight_selection(
-    tool_context: ToolContext, 
-    airline_info: str = "Unknown", 
-    route: str = "Unknown", 
-    scheduling: str = "Unknown", 
-    passengers: str = "Unknown", 
-    price: str = "0.00"
-) -> str:
-    print(f"DEBUG: Saving Flight: {airline_info} | {price}")
+def save_flight_selection(tool_context: ToolContext, airline_info: str = None, route: str = None, scheduling: str = None, passengers: str = None, price: str = None, seats: str = None, seat_cost: str = None) -> str:
+
+    flights = tool_context.state.get("flights", [])
     
-    try:
-        db = _load_db(tool_context)
-        if "flights" not in db: db["flights"] = []
+    if seats and flights and not airline_info:
+        last_flight = flights[-1]
         
-        initial_count = len(db["flights"])
+        last_flight['seats'] = seats 
+        last_flight['seat_cost'] = seat_cost if seat_cost else "0"
+        
+        tool_context.state["flights"] = flights
+        return f"System: Successfully added seats {seats} (Cost: {seat_cost}) to flight {last_flight.get('airline_info')}."
 
-        db["flights"].append({
-            "airline_info": airline_info,
-            "route": route,
-            "scheduling": scheduling,
-            "passengers": passengers,
-            "price": price
-        })
-        
-        _save_db(tool_context, db)
-        
-        verify_db = _load_db(tool_context)
-        new_count = len(verify_db["flights"])
-        
-        if new_count > initial_count:
-            if new_count == 1:
-                return "FLIGHT SAVED SUCCESSFULLY. SYSTEM COMMAND: This is the FIRST flight. Ask: 'Do you want to book a return flight?'"
-            else:
-                return f"FLIGHT SAVED (Count: {new_count}). SYSTEM COMMAND: Ask: 'Do you want to book any other flights?'"
-        else:
-            print("CRITICAL ERROR: Verification failed. DB count did not increase.")
-            return "CRITICAL ERROR: Flight data was not written to disk. Please try saving again."
+    if not airline_info:
+        return "Error: Missing flight details."
 
-    except Exception as e:
-        print(f"CRITICAL EXCEPTION in save_flight: {e}")
-        traceback.print_exc()
-        return f"CRITICAL ERROR saving flight: {str(e)}. Please retry."
+    new_flight = {
+        "airline_info": airline_info,
+        "route": route,
+        "scheduling": scheduling,
+        "passengers": passengers,
+        "price": price,
+        "seats": seats if seats else None,
+        "seat_cost": seat_cost if seat_cost else "0"
+    }
+    
+    flights.append(new_flight)
+    tool_context.state["flights"] = flights
+    return f"FLIGHT SAVED: {airline_info} ({route}). Passengers: {passengers}."
+
+def get_latest_flight(tool_context: ToolContext) -> str:
+    flights = tool_context.state.get("flights", [])
+    if not flights: return "No flights found"
+    info = flights[-1].get('airline_info', 'Unknown')
+    return info.split(' ')[0] if info else "Unknown"
 
 def get_trip_summary(tool_context: ToolContext) -> str:
     try:
-        db = _load_db(tool_context)
+        flights = tool_context.state.get("flights", [])
+        global_seats = tool_context.state.get("seat_bookings", [])
         
-        if not db.get("flights"): 
-            print("DEBUG: get_trip_summary found 0 flights in DB.")
-            return "Here is your trip summary: No flights booked yet."
+        if not flights: 
+            return "System Notification: No flights selected."
 
-        summary = "**Your Flight Selection Summary**\n"
-        summary += "========================================\n\n"
+        summary = ["\n-------------------------------------------"]
+        summary.append("### ✈️ TRIP SUMMARY")
         grand_total = 0.0
 
-        for i, flight in enumerate(db["flights"], 1):
+        for i, flight in enumerate(flights):
+            title = "Outbound Flight" if i == 0 else ("Return Flight" if i == 1 else f"Flight {i+1}")
+            summary.append(f"\n**{title}:**")
+            
             try:
-                p_str = re.sub(r'[^\d.]', '', str(flight['price']))
-                unit_price = float(p_str)
-                if ',' in flight['passengers']:
-                    p_list = flight['passengers'].split(',')
+                price_str = re.sub(r'[^\d.]', '', str(flight.get('price', '0')))
+                unit_price = float(price_str) if price_str else 0.0
+            except: unit_price = 0.0
+
+            p_raw = str(flight.get('passengers', ''))
+            numbered_matches = re.findall(r'\d+\.\s*([^\d,]+)', p_raw) 
+            
+            if numbered_matches:
+                p_list = [m.strip() for m in numbered_matches]
+            elif ',' in p_raw:
+                p_list = [p.strip() for p in p_raw.split(',') if p.strip()]
+            else:
+                p_list = [p_raw] if p_raw else []
+
+            pass_count = len(p_list) if p_list else 1
+            flight_fare_total = unit_price * pass_count
+
+            seats_data = flight.get('seats') or flight.get('selected_seats')
+            
+            if not seats_data and global_seats:
+                flight_num = flight.get('airline_info', '').split(' ')[0]
+                seats_data = [s for s in global_seats if flight_num in str(s.get('flight', ''))]
+
+            seat_list = [] 
+            seats_cost = 0.0
+            
+            if isinstance(seats_data, str):
+                seat_list = [s.strip() for s in seats_data.split(',') if s.strip()]
+                try:
+                    c_str = re.sub(r'[^\d.]', '', str(flight.get('seat_cost', '0')))
+                    seats_cost = float(c_str) if c_str else 0.0
+                except: seats_cost = 0.0
+
+            elif isinstance(seats_data, list):
+                for s in seats_data:
+                    if isinstance(s, dict):
+                        seat_list.append(s.get('seat', '?'))
+                        try: s_p = float(re.sub(r'[^\d.]', '', str(s.get('price', 0))))
+                        except: s_p = 0.0
+                        seats_cost += s_p
+                    else:
+                        seat_list.append(str(s))
+
+            passenger_display = []
+            for idx, p_name in enumerate(p_list):
+                if idx < len(seat_list):
+                    assigned_seat = seat_list[idx]
+                    passenger_display.append(f"{idx+1}. {p_name} (**Seat: {assigned_seat}**)")
                 else:
-                    p_list = [flight['passengers']]
-                
-                pass_count = len(p_list)
-                subtotal = unit_price * pass_count
-                grand_total += subtotal
-                formatted_subtotal = f"${subtotal:.2f}"
-            except:
-                pass_count = 1
-                subtotal = 0
-                formatted_subtotal = "Calc Error"
-                p_list = [flight['passengers']]
+                    passenger_display.append(f"{idx+1}. {p_name}")
 
-         
-            summary += f"**Flight {i}:** {flight['airline_info']} | {flight['route']}\n"
-            
-            sched = flight['scheduling'].replace('Dep', 'Departure:').replace('Arr', 'Arrival:')
-            summary += f"🕒 {sched}\n"
-            
-            summary += f" **Subtotal:** {flight['price']} x {pass_count} passengers = **{formatted_subtotal}**\n"
-            
-            summary += " **Passengers:**\n"
-            for p in p_list:
-                summary += f"   • {p.strip()}\n"
-            
-            summary += "\n----------------------------------------\n\n"
+            display_str = "\n   " + "\n   ".join(passenger_display)
 
-        summary += f"**GRAND TOTAL:** ${grand_total:.2f}\n\n"
-        summary += "If everything is correct, shall we proceed to booking? Type **'Proceed'**."
+            segment_total = flight_fare_total + seats_cost
+            grand_total += segment_total
+
+            sched = flight.get('scheduling', '').replace("Departure::", "Dep:").replace("Arrival::", "Arr:")
+            
+            summary.append(f"* **Airline:** {flight.get('airline_info', 'Unknown')}")
+            summary.append(f"* **Route:** {flight.get('route', 'Unknown')}")
+            summary.append(f"* **Schedule:** {sched}")
+            summary.append(f"* **Travelers & Seats:** {display_str}")
+            summary.append(f"* **Cost Breakdown:**")
+            summary.append(f"   - Fare: ${unit_price:.2f} x {pass_count} = ${flight_fare_total:.2f}")
+            summary.append(f"   - Seat Fees: ${seats_cost:.2f}")
+            summary.append(f"* **Subtotal:** ${segment_total:.2f}")
+
+        summary.append(f"\n### 💰 GRAND TOTAL: ${grand_total:.2f}")
+        summary.append("-------------------------------------------\n")
         
-        return summary
+        return "\n".join(summary)
+
     except Exception as e:
-        return f"Error generating summary: {e}"
+        return f"System Error: {e}"
+
+def get_stay_summary(tool_context: ToolContext) -> str:
+    try:
+        hotels = tool_context.state.get("hotel_bookings", [])
+        
+        if not hotels: 
+            return "System Notification: No hotel bookings found."
+
+        summary = ["\n-------------------------------------------"]
+        summary.append("### 🏨 STAY SUMMARY")
+        grand_total = 0.0
+
+        for i, booking in enumerate(hotels):
+            title = f"Hotel Stay {i+1}"
+            summary.append(f"\n**{title}:**")
+            
+            segment_total = float(booking.get('total_cost', 0.0))
+            grand_total += segment_total
+            dates = f"{booking.get('check_in', 'N/A')} to {booking.get('check_out', 'N/A')}"
+            timings = booking.get('timings', '2:00 PM / 11:00 AM')
+            summary.append(f"* **Hotel:** {booking.get('hotel', 'Unknown')}")
+            summary.append(f"* **Dates:** {dates}")
+            summary.append(f"* **Timings:** {timings}")
+            summary.append(f"* **Rooms:** {booking.get('rooms', 'Unknown')}")
+            summary.append(f"* **Guests:** {booking.get('guests', 'Unknown')}")
+            summary.append(f"* **Confirmation #:** {booking.get('confirmation_number', 'Pending')}")
+            summary.append(f"* **Cost:** ${segment_total:.2f}")
+
+        summary.append(f"\n### 💰 GRAND TOTAL: ${grand_total:.2f}")
+        summary.append("-------------------------------------------\n")
+        
+        return "\n".join(summary)
+
+    except Exception as e:
+        return f"System Error in hotel summary: {e}"
+
+def memorize_guests(guest_names: str, tool_context: ToolContext) -> str:
+    tool_context.state["current_hotel_guests"] = guest_names    
+    add_passengers_bulk(tool_context, guest_names)    
+    return f"Guest list updated. Saved: {guest_names}"
+
+def get_guest_list(tool_context: ToolContext) -> str:
+    passengers = tool_context.state.get("passengers", [])
+    if not passengers: return "No travelers currently on file."
+    return "\n".join([f"{i+1}. {p['name']}" for i, p in enumerate(passengers)]) + "\n"
