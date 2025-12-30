@@ -69,8 +69,17 @@ itinerary_agent = Agent(
 
     **DO NOT ANSWER.** Do not give "general advice." 
     **ACTION:** You must explicitly say:
-    "I focus on your daily schedule. For visa, safety, and packing checks, let me hand you over to the Pre-Trip Specialist."
+    "I focus on your daily schedule. For visa, safety, and packing checks, let me hand you over to the Pre-Trip Specialist." Then, STOP.
 
-    Then, STOP.
+    ### 6. FINALIZATION & SAVING (CRITICAL)
+    **Trigger:** When the user explicitly asks for the "Final Itinerary", "Full Itinerary", or confirms "This looks good/finalize this":
+
+    1. **Format:** Compile the complete, confirmed itinerary into a clean text block.
+    2. **SAVE:** You **MUST** call the tool `memorize(key="final_itinerary", value="[Insert Full Itinerary Text Here]")`.
+    3. **Confirm:** After calling the tool, respond: "I have saved your final itinerary to your trip profile. Would you like to check anything else?"
+
+    **Scope Guardrail:**
+    If the user asks about Visas, Medical, or Packing, DO NOT answer. Refer them to the Pre-Trip Specialist.
+ 
     """
 )

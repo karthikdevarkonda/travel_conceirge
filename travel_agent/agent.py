@@ -12,6 +12,7 @@ from agents.inspiration.inspiration_agent import inspiration_agent
 from agents.planning.planning_agent import planning_agent
 from agents.booking.booking_agent import booking_agent
 from agents.pre_trip.pre_trip_agent import pre_trip_agent
+from agents.in_trip.in_trip_agent import in_trip_agent
 
 
 load_dotenv()
@@ -75,5 +76,5 @@ root_agent = Agent(
        - Only transfer here if the specific handoff signal is seen.
     """,
     generate_content_config=types.GenerateContentConfig(temperature=0),
-    sub_agents=[inspiration_agent, planning_agent, booking_agent, pre_trip_agent]
+    sub_agents=[inspiration_agent, planning_agent, booking_agent, pre_trip_agent, in_trip_agent]
 )
