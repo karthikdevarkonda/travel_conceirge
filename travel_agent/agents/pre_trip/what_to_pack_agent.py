@@ -2,7 +2,6 @@ import os
 import sys
 from google.adk import Agent
 
-# --- PATH SETUP ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 if parent_dir not in sys.path:
@@ -61,7 +60,5 @@ what_to_pack_agent = Agent(
     **CLOSING:**
     Ask: "Does this list cover everything, or do you need me to add special items for pets or specific hobbies?"
     """,
-    # This agent relies purely on the rich context provided by previous agents, 
-    # so it does not strictly need external tools.
     tools=[google_search_tool]
 )
