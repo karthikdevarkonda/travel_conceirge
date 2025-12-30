@@ -56,7 +56,7 @@ def search_hotels(tool_context: ToolContext, location: str, check_in: str = None
 
     if not all_candidates: return f"No hotels found in {location}."
 
-    filtered_hotels = [h for h in all_candidates if h.get("reviews", 0) >= 1000]
+    filtered_hotels = [h for h in all_candidates if h.get("reviews", 0) >= 400]
     filtered_hotels.sort(key=lambda x: float(x.get("overall_rating") or x.get("rating") or 0.0), reverse=True)
 
     start_idx = (page - 1) * 5
@@ -81,23 +81,45 @@ def search_hotels(tool_context: ToolContext, location: str, check_in: str = None
         
         def clean_price(p_obj):
             if isinstance(p_obj, dict):
-                return p_obj.get("price") or p_obj.get("lowest") or p_obj.get("extracted_price") or "N/A"
+                return p_obj.get("price") or str(p_obj.get("extracted_price")) or None
+            
             return str(p_obj)
 
-        ppn = hotel.get("price_per_night")
-        if ppn: price = clean_price(ppn)
+        price = "N/A"
         
+        raw_ppn = hotel.get("price_per_night")
+        if raw_ppn:
+            found = extract_price_string(raw_ppn)
+            if found: price = found
+            
         if price == "N/A":
-            rate_obj = hotel.get("rate_per_night")
-            if rate_obj: price = clean_price(rate_obj)
+            raw_rpn = hotel.get("rate_per_night")
+            if raw_rpn:
+                found = extract_price_string(raw_rpn)
+                if found: price = found
 
         if price == "N/A":
-            np = hotel.get("nightly_price")
-            if np: price = clean_price(np)
-        
-        if price == "N/A": price = f"${random.randint(200, 400)}"
-        ci = hotel.get("check_in_time") or random.choice(["12:00 PM", "2:00 PM", "3:00 PM"])
-        co = hotel.get("check_out_time") or random.choice(["10:00 AM", "11:00 AM"])
+            prices_list = hotel.get("prices", [])
+            if prices_list and isinstance(prices_list, list):
+                found = extract_price_string(prices_list[0])
+                if found: price = found
+
+        if price == "N/A":
+            prices_list = hotel.get("prices", [])
+            if prices_list and isinstance(prices_list, list):
+                found = extract_price_string(prices_list[0])
+                if found: price = found
+
+        if price == "N/A": 
+            rand_price = random.randint(200, 400)
+            price = f"${rand_price}"
+
+        def clean_time(t_str):
+            if not t_str: return "Check with Hotel"
+            return t_str.replace('\u202f', ' ').strip()
+
+        ci = clean_time(hotel.get("check_in_time")) or random.choice(["12:00 PM", "2:00 PM", "3:00 PM"])
+        co = clean_time(hotel.get("check_out_time")) or random.choice(["10:00 AM", "11:00 AM"])
 
         amenities = hotel.get("amenities", [])
         amenities_str = ", ".join(amenities[:6]) if amenities else "Pool, WiFi, Balcony, Laundry, Gym"
@@ -131,12 +153,17 @@ def get_room_options_api(tool_context: ToolContext, hotel_name: str = None) -> s
     
     display_name = selected_hotel.get("name", hotel_name or "Selected Hotel")
     
-    raw_price = str(selected_hotel.get("price", "200"))
+    raw_price = str(selected_hotel.get("price", ""))
+    base = None
     try:
         clean_price = re.sub(r'[^\d.]', '', raw_price)
-        base = float(clean_price) if clean_price else 200.0
+        if clean_price:
+            base = float(clean_price)
     except:
-        base = 200.0
+        pass
+
+    if base is None:
+        return f"Error: Pricing information is unavailable for {display_name}. Please choose another hotel or check availability manually."
         
     print(f"\n[TOOL LOG] 🛏️ Generating rooms for {display_name} using Base Price: ${base}")
 
@@ -157,6 +184,14 @@ def get_room_options_api(tool_context: ToolContext, hotel_name: str = None) -> s
             "desc": "Top floor, Separate Living Area, Club Lounge Access, Jacuzzi"
         }
     ]
+    tool_context.state["current_room_inventory"] = [
+        {
+            "type": r["type"],
+            "price": r["price"],
+            "price_val": float(re.sub(r"[^\d.]", "", r["price"]))
+        }
+        for r in inventory
+    ]
 
     sold_out_index = -1
     if random.random() < 0.3:
@@ -172,53 +207,118 @@ def get_room_options_api(tool_context: ToolContext, hotel_name: str = None) -> s
 
     return "\n".join(output)
 
+def book_room_api(
+    tool_context: ToolContext,
+    hotel_name: str,
+    room_details: str,
+    guest_names: str,
+    check_in: str,
+    check_out: str
+):
 
-def book_room_api(tool_context: ToolContext, hotel_name: str, room_details: str, guest_names: str, check_in: str, check_out: str):    
-    print(f"\n[TOOL LOG] 🏨 Securing '{room_details}' at {hotel_name} ({check_in} - {check_out})...")
-    
-    if "sold out" in room_details.lower(): return "Error: Sold out."
+    print(f"\n[TOOL LOG] 🏨 Securing '{room_details}' at {hotel_name}...")
+
+    try:
+        d1 = datetime.strptime(check_in, "%Y-%m-%d")
+        d2 = datetime.strptime(check_out, "%Y-%m-%d")
+        nights = abs((d2 - d1).days)
+        if nights == 0:
+            nights = 1
+    except ValueError:
+        return "Error: Invalid date format. Please use YYYY-MM-DD."
+
+    inventory = tool_context.state.get("current_room_inventory", [])
+    print("[DEBUG] INVENTORY:", inventory)
+
+    txt = room_details.lower().strip()
+    txt = re.sub(r'\s+and\s+', ',', txt)
+    segments = [s.strip() for s in txt.split(',') if s.strip()]
+
+    total_trip_cost = 0.0
+    breakdown_text = []
+
+    ROOM_KEYWORDS = ["standard", "deluxe", "executive", "suite"]
+
+    def normalize_tokens(text: str):
+        tokens = re.findall(r"[a-zA-Z]+", text.lower())
+        return {t for t in tokens if t not in {"room", "rooms"}}
+
+
+    for segment in segments:
+
+        count_match = re.search(r'(\d+)', segment)
+        count = int(count_match.group(1)) if count_match else 1
+
+        seg_tokens = normalize_tokens(segment)
+
+        price = None
+        matched_type = "Unknown Room"
+
+        for item in inventory:
+
+            inv_label = (
+                item.get("type")
+                or item.get("room_type")
+                or ""
+            )
+
+            inv_tokens = normalize_tokens(inv_label)
+
+            common = seg_tokens.intersection(inv_tokens)
+
+            if any(k in inv_tokens for k in ROOM_KEYWORDS) and common:
+                price = float(item["price_val"])
+                matched_type = inv_label
+                break
+
+        if price is None:
+            p_match = re.search(r'\$\s?(\d+)', segment)
+            if p_match:
+                price = float(p_match.group(1))
+                matched_type = "Custom Room"
+
+        if price is None:
+            print(f"[DEBUG] Could not price segment: {segment}")
+            continue
+
+        segment_total = price * count * nights
+        total_trip_cost += segment_total
+        breakdown_text.append(f"{count}x {matched_type}")
+
+    if total_trip_cost == 0:
+        return (
+            "Error: Could not match any rooms to inventory. "
+            "Please specify 'Standard', 'Deluxe', or 'Suite'."
+        )
 
     selected_hotel = tool_context.state.get("selected_hotel", {})
     if selected_hotel.get("name") != hotel_name:
-        base_price = 0.0
-        ci_time, co_time = "2:00 PM", "11:00 AM"
+        ci_time, co_time = "Check Hotel", "Check Hotel"
     else:
-        try: base_price = float(re.sub(r'[^\d.]', '', str(selected_hotel.get("price", "0"))))
-        except: base_price = 0.0
-        ci_time = selected_hotel.get("check_in_time", "2:00 PM")
-        co_time = selected_hotel.get("check_out_time", "11:00 AM")
-
-    total_cost = 0.0
-    matches = re.findall(r'(\d+)\s*x?\s*(Standard|Deluxe|Executive|Suite)', room_details, re.IGNORECASE)
-    if matches:
-        for count_str, r_type in matches:
-            count = int(count_str)
-            r_type = r_type.lower()
-            if "standard" in r_type: cost = base_price
-            elif "deluxe" in r_type: cost = base_price + 50
-            elif "suite" in r_type or "executive" in r_type: cost = base_price + 100
-            else: cost = base_price
-            total_cost += (cost * count)
-    else: total_cost = base_price
+        ci_time = selected_hotel.get("check_in_time", "Check Hotel")
+        co_time = selected_hotel.get("check_out_time", "Check Hotel")
 
     booking_details = {
         "status": "Confirmed (Pending Payment)",
         "hotel": hotel_name,
-        "check_in": check_in, "check_out": check_out,
+        "check_in": check_in,
+        "check_out": check_out,
+        "nights": nights,
         "timings": f"{ci_time} / {co_time}",
-        "rooms": room_details, "guests": guest_names,
-        "total_cost": total_cost
+        "rooms": ", ".join(breakdown_text),
+        "guests": guest_names,
+        "total_cost": total_trip_cost
     }
 
-    current_bookings = tool_context.state.get("hotel_bookings", [])
-    if not isinstance(current_bookings, list): current_bookings = []
-    
-    current_bookings.append(booking_details)
-    tool_context.state["hotel_bookings"] = current_bookings
+    bookings = tool_context.state.get("hotel_bookings", [])
+    if not isinstance(bookings, list):
+        bookings = []
+    bookings.append(booking_details)
+    tool_context.state["hotel_bookings"] = bookings
 
-    current_passengers = tool_context.state.get("passengers", [])
-    clean_names = guest_names.replace(" and ", ",").split(",")
-    for n in clean_names:
+    passengers = tool_context.state.get("passengers", [])
+    clean = guest_names.replace("\n", ",").replace(" and ", ",")
+    for n in clean.split(","):
         n = n.strip()
         if "(" in n: n = n.split("(")[0].strip()
         if n and not any(p.get('name', '').lower() == n.lower() for p in current_passengers):

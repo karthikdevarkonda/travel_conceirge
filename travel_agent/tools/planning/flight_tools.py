@@ -18,7 +18,6 @@ def _format_time_new(iso_str):
     try:
         dt = datetime.strptime(iso_str, "%Y-%m-%dT%H:%M:%S")
         
-        # Helper for 'th', 'st', 'nd'
         day = dt.day
         suffix = 'th' if 11 <= day <= 13 else {1:'st', 2:'nd', 3:'rd'}.get(day % 10, 'th')
         
@@ -45,7 +44,6 @@ def search_flights_amadeus(tool_context: ToolContext, origin: str, destination: 
    
     if not amadeus: return "Error: Amadeus credentials missing."
 
-    # Clean date input just in case
     clean_date = _clean_date(departure_date)
 
     try:

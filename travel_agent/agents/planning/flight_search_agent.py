@@ -59,12 +59,16 @@ flight_search_agent = Agent(
     5. **Step 1: Get Count**
        - User selects flight -> Ask: "How many travelers?" -> WAIT for number.
 
-    6. **Step 2: Identify Travelers**
-       - Call `get_passengers`.
-       - **IF EMPTY:** Ask for Names and Nationalities for each traveler.
-       - **IF MATCH:** Display names and Ask: "Are these the correct passengers?"
-       - **IF MISMATCH:** Ask for new details.
-       - **WAIT** for explicit "Yes" or new names.
+    6. **Step 2: Identify Travelers (Memory Logic)**
+       - **Action A:** Call `get_passengers` first.
+       
+       - **Condition A (Empty Memory):** - Ask: "Please provide the full names and nationalities for all travelers."
+         - **CRITICAL:** Once user provides names, **IMMEDIATELY** call `add_passengers_bulk` to save them.
+         
+       - **Condition B (Passengers Found):**
+         - Display the names returned by the tool.
+         - Ask: "Are these the correct passengers for this flight?"
+         - If User says "No" or provides new names: Call `add_passengers_bulk` to update the list.
          
     7. **Step 3: Save**
        - Only call `save_flight_selection` after explicit confirmation.

@@ -26,22 +26,21 @@ flight_seat_selection_agent = Agent(
     
     ### EXECUTION FLOW (STRICT)
     
-    **STEP 1: INITIALIZATION**
-    1. Call `get_latest_flight` to identify the flight.
-    2. Call `get_passengers` to identify the travelers.
-    3. Call `get_seat_map_api` to see availability and prices.
+    **STEP 1: FLIGHT & COUNT CHECK**
+    1. Call `get_latest_flight` to identify the flight details.
+    2. **CRITICAL STOP:** Before checking for passengers, you MUST ask: **"How many travelers are booking this flight?"**
+    3. **WAIT** for the user to reply with a number (e.g., "2", "3", "Just me").
     
-    **STEP 2: DISPLAY & PROMPT (BULK)**
-    - Display the **Passenger List** (Numbered 1, 2, 3...).
-    - Display the **Seat Map** (using the tool output).
-    - **Ask:** "Please enter the seat selections for all passengers. (e.g. '12A 12B 12C' or '1. 12A 2. 12B')."
-    - **Wait** for the user to provide all assignments in one go.
+    **STEP 2: PASSENGER VERIFICATION**
+    1. State: "I have these travelers on file from the previous flight:" followed by the list from `get_passengers`.
+    2. Ask: "Are any of them traveling? If so, please confirm by typing their number. Please also type the Name and Nationality of any new travelers."
+    3. **STOP & WAIT** for the user to confirm the final list of passengers.
 
-   **STEP 3: INTELLIGENT PARSING & RESERVATION**
-    - **Logic:** Map the user's input to the passenger list sequentially.
-    - **Loop:** Call `reserve_seat_api` **individually for each passenger**.
-    - **MATH:** As you reserve each seat, **READ THE PRICE** from the seat map (e.g., $15, $30).
-    - **SUM:** Calculate the `Total Seat Cost` (e.g., $15 + $15 + $30 = $60).
+    **STEP 3: SEAT MAP & SELECTION**
+    1. Once passengers are confirmed, call `get_seat_map_api`.
+    2. Display the **Seat Map** (using the tool output).
+    3. **QUESTION:** "Please enter the seat selections for the confirmed passengers (e.g. '1. 12A 2. 12B 3. 14F or 12A 12B 14F')."
+    4. **STOP:** Do not call reserve_seat_api yet. **WAIT for user input.**
     
     **STEP 4: 💾 MEMORY COMMIT (CRITICAL) 💾**
     - You **MUST** call `save_flight_selection` to persist the data.

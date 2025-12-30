@@ -3,7 +3,6 @@ from typing import Any
 from google.adk.tools.tool_context import ToolContext
 
 def memorize_list(key: str, value: Any, tool_context: ToolContext):
-    """Safely appends a value to a list in the session state."""
     mem_dict = tool_context.state
     if key not in mem_dict: mem_dict[key] = []
     if not isinstance(mem_dict[key], list): mem_dict[key] = [mem_dict[key]]

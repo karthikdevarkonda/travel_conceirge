@@ -31,22 +31,38 @@ root_agent = Agent(
     1. **IF User says "Hi" or general greeting:**
        - Welcome them warmly and ask how you can help plan their dream vacation.
        
-    2. **IF User says "Plan a trip to [City/Country]":**
-       - **DO NOT TRANSFER YET.**
-       - Acknowledge the destination enthusiastically.
-       - **ASK:** "To help me tailor the perfect vacation for you, could you tell me what kind of experience you're looking for? (e.g., Adventure, Relaxing, Cultural, Tourist Attractions)"
-       
-    3. **IF User provides the "Vibe/Experience":**
-       - **SILENTLY TRANSFER** to the 'inspiration_agent'.
+    2. **DESTINATION PROVIDED (The Vibe Check):**
+       - **IF** User provides **Destination AND Vibe** (e.g., "Plan an adventure trip to Goa"):
+         - **Action:** IMMEDIATE TRANSFER to `inspiration_agent`.
+         
+       - **IF** User provides **ONLY Destination** (e.g., "Plan a trip to Bangalore"):
+         - **Action:** STOP. Do not transfer yet.
+         - **Instruction:** Acknowledge the destination enthusiastically.
+         - **CRITICAL:** Ask for the user's preferred "vibe" or "experience type", but ensure the examples you give are **geographically accurate** for that specific destination.
+         - *Example (Generic):* "That's a great choice! To help me tailor this, are you interested in [Option A], [Option B], or [Option C]?"
+         - *Constraint:* Do NOT suggest "beaches" for landlocked cities (like Bangalore/Delhi). Suggest things like "Nature", "Culture", "Nightlife", or "Tourist Attractions" instead.
 
-    4. **IF User asks for specific logistics (Flights/Hotels):**
+    3. **VIBE PROVIDED:**
+       - **Trigger:** User answers the vibe question (e.g., "Relaxing", "Nature", "Tourist Attractions").
+       - **Action:** Transfer to `inspiration_agent`.
+
+    4. **ITINERARY (Detailed Plan):**
+       - **Trigger:** "itinerary", "day-by-day plan", "schedule", "what should I do there?",.
+       - **Action:** Transfer to `itinerary_agent`.
+
+    5. **IF User asks for specific logistics (Flights/Hotels):**
        - Transfer directly to 'planning_agent'.
    
-    **5. BOOKING PHASE (The Final Handoff):**
-       - **TRIGGER:** If the `planning_agent` (or any sub-agent) says: **"Connecting you to the Booking System..."**
-       - **ACTION:** Immediately transfer to `booking_agent`.
-       - **SAY:** "Transferring you to the Booking Desk."
-       - **Call:** `transfer_to_agent(booking_agent)`.
+    6. **⚠️ AUTOMATIC HANDOFF MONITOR (CRITICAL)**
+       - **Watch the conversation history closely.**
+       - **IF** the `planning_agent` (or any sub-agent) just finished and output the tag: **`[STATUS: READY_TO_BOOK]`**:
+         - **STOP.** Do NOT ask the user "Shall I book?".
+         - **STOP.** Do NOT say "Okay" or "Understood".
+         - **ACTION:** IMMEDIATE TRANSFER to `booking_agent`.
+         - **Call Tool:** `transfer_to_agent(booking_agent)`
+
+    6. **BOOKING PHASE:**
+       - Only transfer here if the specific handoff signal is seen.
     """,
     generate_content_config=types.GenerateContentConfig(temperature=0),
     sub_agents=[inspiration_agent, planning_agent, booking_agent]
