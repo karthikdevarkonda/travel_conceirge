@@ -3,21 +3,17 @@ import sys
 import datetime
 from google.adk import Agent
 
-# --- PATH SETUP ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 if parent_dir not in sys.path:
     sys.path.append(parent_dir)
 
 try:
-    # Import your existing memory tool
     from tools.memory_tools import memorize
 
-    # Import the sub-agents we defined earlier
     from agents.in_trip.trip_monitor_agent import trip_monitor_agent
     from agents.in_trip.day_of_agent import day_of_agent
 except ImportError:
-    # Fallback for relative paths if run directly
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
     from travel_agent.tools.memory_tools import memorize
     from travel_agent.agents.in_trip.trip_monitor_agent import trip_monitor_agent
@@ -25,7 +21,6 @@ except ImportError:
 
 model_name = os.getenv("MODEL")
 
-# agents/in_trip/in_trip_agent.py
 
 in_trip_agent = Agent(
     name="in_trip_agent",
