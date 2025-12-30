@@ -33,7 +33,5 @@ _search_worker = Agent(
     """,
     tools=[google_search] 
 )
-
-# This is the tool object you import into other agents
 google_search_tool = AgentTool(agent=_search_worker)
  
