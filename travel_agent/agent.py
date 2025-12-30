@@ -11,6 +11,7 @@ if current_dir not in sys.path:
 from agents.inspiration.inspiration_agent import inspiration_agent
 from agents.planning.planning_agent import planning_agent
 from agents.booking.booking_agent import booking_agent
+from agents.pre_trip.pre_trip_agent import pre_trip_agent
 
 
 load_dotenv()
@@ -52,8 +53,17 @@ root_agent = Agent(
 
     5. **IF User asks for specific logistics (Flights/Hotels):**
        - Transfer directly to 'planning_agent'.
+
+    6. **PRE-TRIP READINESS (Visas, Safety, Packing):** # <--- NEW ROUTING RULE
+       - **Trigger:** User asks about:
+         - "Do I need a visa?"
+         - "Is it safe to travel there?" / "Travel warnings"
+         - "What vaccinations do I need?"
+         - "Check the weather for my trip" / "Storm alerts"
+         - "What should I pack?"
+       - **Action:** IMMEDIATE TRANSFER to `pre_trip_agent`.
    
-    6. **⚠️ AUTOMATIC HANDOFF MONITOR (CRITICAL)**
+    7. **⚠️ AUTOMATIC HANDOFF MONITOR (CRITICAL)**
        - **Watch the conversation history closely.**
        - **IF** the `planning_agent` (or any sub-agent) just finished and output the tag: **`[STATUS: READY_TO_BOOK]`**:
          - **STOP.** Do NOT ask the user "Shall I book?".
@@ -61,9 +71,9 @@ root_agent = Agent(
          - **ACTION:** IMMEDIATE TRANSFER to `booking_agent`.
          - **Call Tool:** `transfer_to_agent(booking_agent)`
 
-    6. **BOOKING PHASE:**
+    8. **BOOKING PHASE:**
        - Only transfer here if the specific handoff signal is seen.
     """,
     generate_content_config=types.GenerateContentConfig(temperature=0),
-    sub_agents=[inspiration_agent, planning_agent, booking_agent]
+    sub_agents=[inspiration_agent, planning_agent, booking_agent, pre_trip_agent]
 )
