@@ -55,7 +55,7 @@ root_agent = Agent(
     5. **IF User asks for specific logistics (Flights/Hotels):**
        - Transfer directly to 'planning_agent'.
 
-    6. **PRE-TRIP READINESS (Visas, Safety, Packing):** # <--- NEW ROUTING RULE
+    6. **PRE-TRIP READINESS (Visas, Safety, Packing):** 
        - **Trigger:** User asks about:
          - "Do I need a visa?"
          - "Is it safe to travel there?" / "Travel warnings"
