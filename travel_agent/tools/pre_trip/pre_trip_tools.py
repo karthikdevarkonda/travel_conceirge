@@ -17,7 +17,7 @@ def _fetch_official_data(query: str, context_label: str) -> str:
         "q": query,
         "api_key": api_key,
         "gl": "us", "hl": "en",
-        "num": 4  
+        "num": 5  
     }
 
     try:
@@ -30,7 +30,7 @@ def _fetch_official_data(query: str, context_label: str) -> str:
                 title = result.get("title", "No Title")
                 text = result.get("snippet", "No snippet")
                 link = result.get("link", "No link")
-                snippets.append(f"- **{title}**: {text} (Source: {link})")
+                snippets.append(f"- **{title}**: {text}")
 
         if not snippets:
             return f"Warning: No live data found for {context_label}. Please consult official sources manually."
@@ -38,7 +38,8 @@ def _fetch_official_data(query: str, context_label: str) -> str:
         return (
             f"**ℹ️ {context_label} Search Findings:**\n"
             f"{chr(10).join(snippets)}\n\n"
-            f"**[SYSTEM INSTRUCTION]:** Use the data above to answer the user's question. Cite the sources provided."
+            f"**[SYSTEM INSTRUCTION]:** Analyze the snippets above. "
+            f"Extract specific details (Validity, Entry Rules, Costs) and cite the sources."
         )
 
     except Exception as e:
@@ -66,10 +67,12 @@ def check_visa_requirements(tool_context: ToolContext, destination_country: str)
     reports = []
     for nationality, names in nationality_map.items():
         query = (
-            f"official tourist visa requirements for {nationality} citizen to {destination_country} "
-            f"government site validity application process multiple entry"
+            f"visa requirements for {nationality} citizens traveling to {destination_country} "
+            f"official government site e-visa availability visa on arrival rules "
+            f"validity period duration multiple entry allowed cost"
         )
         result_text = _fetch_official_data(query, f"Visa Rules ({nationality} -> {destination_country})")
+        
         reports.append(f"### 🛂 Visa Check for {nationality} Citizens ({', '.join(names)})")
         reports.append(result_text)
         reports.append("-" * 40)
@@ -77,24 +80,26 @@ def check_visa_requirements(tool_context: ToolContext, destination_country: str)
     return "\n".join(reports)
 
 def check_medical_requirements(tool_context: ToolContext, destination_country: str) -> str:
-    query = (
-        f"CDC WHO travel health requirements {destination_country} "
-        f"mandatory yellow fever vaccine malaria prophylaxis dengue outbreak"
+     query = (
+        f"official health entry requirements {destination_country} "
+        f"mandatory vaccinations yellow fever certificate malaria prophylaxis "
+        f"current disease outbreaks health declaration form required CDC WHO"
     )
     return _fetch_official_data(query, f"Medical Requirements ({destination_country})")
 
-def check_travel_advisory(tool_context: ToolContext, destination_country: str) -> str:
+def check_travel_advisory(tool_context: ToolContext, destination_country: str) -> str:  
     query = (
-        f"official travel advisory safety level {destination_country} "
-        f"US State Department UK Foreign Office Canada Travel civil unrest crime terrorism"
+        f"latest travel advisory {destination_country} safety level "
+        f"political situation civil unrest terrorism crime warning "
+        f"US State Department UK Foreign Office Canada Travel advice"
     )
     return _fetch_official_data(query, f"Travel Advisory ({destination_country})")
 
 def storm_monitor(tool_context: ToolContext, destination_country: str, travel_dates: str = "upcoming trip") -> str:
-    current_month = datetime.datetime.now().strftime("%B %Y")
+    current_month = datetime.datetime.now().strftime("%B %Y")    
     query = (
-        f"severe weather alerts warnings {destination_country} {travel_dates} "
-        f"NOAA tropical storm hurricane typhoon cyclone forecast {current_month}"
+        f"weather forecast {destination_country} {travel_dates} "
+        f"severe weather warnings storm alert hurricane typhoon cyclone "
+        f"official met office forecast"
     )
     return _fetch_official_data(query, f"Storm Monitor ({destination_country})")
- 
