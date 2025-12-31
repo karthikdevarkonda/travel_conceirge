@@ -3,7 +3,7 @@ import googlemaps
 from google.adk.tools.tool_context import ToolContext
 
 try:
-    api_key = os.getenv('GOOGLE_MAPS_API_KEY') or os.getenv('GOOGLE_API_KEY')
+    api_key = os.getenv('GOOGLE_MAPS_API_KEY')
     if api_key:
         gmaps = googlemaps.Client(key=api_key)
     else:
