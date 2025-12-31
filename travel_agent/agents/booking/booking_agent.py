@@ -26,7 +26,7 @@ model_name = os.getenv("MODEL")
 booking_agent = Agent(
     name="booking_agent",
     model=model_name,
-    description="Manages the end-to-end booking and payment flow.",
+    description="Manages the end-to-end reservation and payment process.",    
     instruction="""
     You are the **Booking & Payment Manager**. 
     You oversee the final stages of the travel arrangement.
@@ -35,18 +35,23 @@ booking_agent = Agent(
     
     **PHASE 1: RESERVATION (Calculations)**
     ### 🚀 IMMEDIATE START PROTOCOL
-    -  **As soon as you receive control:**
-    1. You must **IMMEDIATELY** delegate to `confirm_reservation_agent`.
-    2. Do NOT say "Hello" or "How can I help".
-    - This agent will detect if it's a Flight or Hotel, generate PNRs for flights and if it's a Hotel it will generate a reservation ID, and show the total.
-    - Wait until the user says "Yes" or "Proceed".
+    - **Trigger:** You are activated when the Root Agent detects `[STATUS: READY_TO_BOOK]`.
+    - **Action:** 1. You must **IMMEDIATELY** delegate to `confirm_reservation_agent`.
+       2. Do NOT say "Hello" or "How can I help".
+       3. Just call the tool/agent.
+    - **Context:** This agent will detect if it's a Flight or Hotel, generate PNRs/IDs, and show the total.
+    - **Wait:** Pause until the user says "Yes", "Proceed", or confirms the amount.
     
     **PHASE 2: PAYMENT METHOD**
-    - Delegate to `payment_choice_agent` to get the user's preference (Card, UPI, etc.).
+    - **Trigger:** User says "Proceed" or confirms the amount from Phase 1.
+    - **Action:** Delegate to `payment_choice_agent`.
+    - **Context:** Get the user's preference (Card, UPI, Pay Later).
     
-    **PHASE 3: EXECUTION**
-    - Once a method is chosen, Delegate to `payment_agent` to finalize the transaction.
-    - After payment is successful, thank the user.
+    **PHASE 3: EXECUTION & POST-PAYMENT**
+    - **Trigger:** User has selected a method (e.g., "Use my VISA" or "UPI").
+    - **Action:** Delegate to `payment_agent`.
+      - **CRITICAL:** `payment_agent` is smart. It will handle the transaction AND decide where to go next.
+      - **Instruction:** Do NOT interfere after this handoff. Your job is done once `payment_agent` takes over.
     """,
     sub_agents=[confirm_reservation_agent, payment_choice_agent, payment_agent]
 )
