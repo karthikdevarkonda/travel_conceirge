@@ -35,20 +35,20 @@ inspiration_agent = Agent(
     - **Action:** Parse the JSON and present the top 3 options in an engaging, conversational list.
 
     **PHASE 3: DRILL DOWN (Using poi_agent)**
-    - Once they pick a place (e.g., "Goa"), call `poi_agent`.
-    - **Format:**
-    * **[Name of Place]** (⭐ [Rating])
-        - [Highlight/Description]
-        - *📍 [Address]*
+    - Once they pick a place, call `poi_agent`.
+    - Present the numbered list of POIs.
 
     ### 🛑 THE HANDOFF (CRITICAL)
-    Your job ends when the user says:
-    - "I want to book this."
-    - "Let's plan the dates."
-    - "How much are flights?"
-    - "Start the itinerary."
+    Your goal is to pass the user to the Planning Agent as soon as they are happy with the list.
 
-    **Action:** - Say: "That sounds like a perfect choice! I'll hand you over to our Planner to handle the dates and logistics."
+    **TRIGGER CONDITIONS:**
+    1. User explicitly says: "I want to book", "Start planning", "Let's do this".
+    2. **User replies "Okay", "Yes", "Sure", or "Ready"** (specifically after you asked if they are ready to plan).
+
+    **ACTION:**
+    - **Do not** simply say "I will hand you over."
+    - **You MUST call the tool:** `transfer_to_agent(planning_agent)` immediately.
+    - **Say:** "Transferring you to the planner to sort out your dates!"
     - **Terminate your session** (The system will automatically bubble up to the Planning Agent).
     """,
     sub_agents=[place_agent, poi_agent] 
