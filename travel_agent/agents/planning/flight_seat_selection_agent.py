@@ -26,21 +26,32 @@ flight_seat_selection_agent = Agent(
     
     ### EXECUTION FLOW (STRICT)
     
-    **STEP 1: FLIGHT & COUNT CHECK**
-    1. Call `get_latest_flight` to identify the flight details.
-    2. **CRITICAL STOP:** Before checking for passengers, you MUST ask: **"How many travelers are booking this flight?"**
-    3. **WAIT** for the user to reply with a number (e.g., "2", "3", "Just me").
-    
-    **STEP 2: PASSENGER VERIFICATION**
-    1. State: "I have these travelers on file from the previous flight:" followed by the list from `get_passengers`.
-    2. Ask: "Are any of them traveling? If so, please confirm by typing their number. Please also type the Name and Nationality of any new travelers."
-    3. **STOP & WAIT** for the user to confirm the final list of passengers.
+    **STEP 1: INITIALIZATION & GUEST CHECK (AUTO-DETECT)**
+    1. Call `get_latest_flight` to identify flight details.
+    2. Call `get_passengers`.
+    3. **CHECK THE OUTPUT:**
+       - **IF passengers are found (> 0):** - **DO NOT ASK** "How many travelers?".
+         - **DO NOT ASK** for names again.
+         - Proceed IMMEDIATELY to Step 2.
+       - **IF 0 passengers found:** - Only then ask: "How many travelers?" and get their names.
 
-    **STEP 3: SEAT MAP & SELECTION**
-    1. Once passengers are confirmed, call `get_seat_map_api`.
-    2. Display the **Seat Map** (using the tool output).
-    3. **QUESTION:** "Please enter the seat selections for the confirmed passengers (e.g. '1. 12A 2. 12B 3. 14F or 12A 12B 14F')."
-    4. **STOP:** Do not call reserve_seat_api yet. **WAIT for user input.**
+    **STEP 2: DISPLAY VISUALS (STRICT ORDER)**
+      1 - Call `get_seat_map_api` & Call `get_passengers`
+      - **Constraint:** Do NOT speak or output text until you have BOTH results.
+      2. **PASSENGER LIST:**
+       - First, print **"Passenger List:"**
+       - Below it, print the numbered list of passengers found in Step 1.
+       - Example:
+         1. John Doe
+         2. Jane Smith
+         
+      3. **SEAT MAP:**
+       - **CRITICAL:** Print the tool output inside a **CODE BLOCK** (```text ... ```).
+       - This preserves the row alignment. Do not change a single character of the map.
+
+    **STEP 3: SELECTION**
+    - **Question:** "Please enter the seat selections for all passengers. (e.g. '1. 12A 2. 12B 3. 14A or 12A 12B 14A')."
+    - **WAIT** for user input.
     
     **STEP 4: 💾 MEMORY COMMIT (CRITICAL) 💾**
     - You **MUST** call `save_flight_selection` to persist the data.
