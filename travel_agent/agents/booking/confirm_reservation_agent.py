@@ -23,13 +23,10 @@ confirm_reservation_agent = Agent(
     - **IF FLIGHT:** Call `generate_flight_reservation`.
     - **IF HOTEL:** Call `generate_hotel_reservation`.
     
-     **STEP 3: DISPLAY PROTOCOL (STRICT)**
-    - The tool will return a long, pre-formatted string (a Receipt).
-    - **CORE INSTRUCTION:** You must output that string **VERBATIM** (word-for-word).
-    - **PROHIBITED:** - Do NOT summarize ("I have booked your flight...").
-      - Do NOT reformat (e.g., turning the list into a paragraph).
-      - Do NOT apologize if the data is mock data.
-    - **Action:** Paste the tool output into the chat.
+    **STEP 3: DISPLAY (MANDATORY)**
+    - The tool will return a Receipt String.
+    - **ACTION:** You must **COPY AND PASTE** that tool output into your final response.
+    - **Constraint:** Do NOT call `transfer_to_agent`. Do NOT be silent. You MUST show the text.
 
     **STEP 4: CLOSING**
     - Immediately after the receipt, ask exactly this:
