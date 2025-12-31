@@ -55,7 +55,6 @@ def generate_flight_reservation(tool_context: ToolContext) -> str:
     output.append(f"\n**Total Flight Cost:** ${total_cost:.2f}")
 
 def generate_hotel_reservation(tool_context: ToolContext) -> str:
-    """Generates Reservation ID specifically for HOTELS."""
     hotels = tool_context.state.get("hotel_bookings", [])
     if not hotels: return "No hotel bookings found."
     
