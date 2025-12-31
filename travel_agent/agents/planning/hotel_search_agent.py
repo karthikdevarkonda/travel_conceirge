@@ -36,7 +36,8 @@ hotel_search_agent = Agent(
     1. Call `get_first_flight_details`.
     2. **IF Flight Found (Status = 'Found'):**
        - Read the `raw_route` field to identify the **Destination City** (Arrival).
-       - **SAY:** "I see you are flying to [City] . Shall I look for hotels there?"
+       - Consult your **Internal Knowledge** to identify the **Destination City** (Arrival) using 3-letter IATA code.
+       - **SAY:** "I see you are flying to [Mention Destination City Name (Not 3-letter IATA Code)] . Shall I look for hotels there?"
        **Please confirm your specific check-in and check-out dates.**"
 
     **Step B: Manual Input (Smart Fallback)**
