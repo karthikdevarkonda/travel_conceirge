@@ -6,6 +6,9 @@ from google.adk.tools.tool_context import ToolContext
 SEARCHAPI_BASE_URL = "https://www.searchapi.io/api/v1/search"
 
 def _fetch_live_data(query: str, label: str) -> str:
+    """
+    Helper to fetch live data with improved error handling, formatting, and source verification.
+    """
     print(f"\n[TOOL LOG] 📡 Monitor Check ({label}): {query}")
 
     api_key = os.getenv("SERPAPI_API_KEY")
@@ -17,7 +20,7 @@ def _fetch_live_data(query: str, label: str) -> str:
         "q": query,
         "api_key": api_key,
         "gl": "us", "hl": "en",
-        "num": 4,
+        "num": 4,             
         "time_period": "last_day" 
     }
 
@@ -51,6 +54,9 @@ def _fetch_live_data(query: str, label: str) -> str:
         return f"⚠️ Connection Error. Could not verify {label}."
 
 def flight_status_check(tool_context: ToolContext, flight_number: str, date: str) -> str:
+    """
+    Checks official status including specific Departure and Arrival times.
+    """
     query = (
         f"official flight status {flight_number} {date} "
         f"scheduled actual departure arrival time gate terminal live"
@@ -58,10 +64,16 @@ def flight_status_check(tool_context: ToolContext, flight_number: str, date: str
     return _fetch_live_data(query, f"Flight {flight_number}")
 
 def weather_impact_check(tool_context: ToolContext, location: str, date: str) -> str:
+    """
+    Checks specifically for disruptions (storms, severe warnings).
+    """
     query = f"hourly weather forecast {location} {date} severe weather warning rain storm alert"
     return _fetch_live_data(query, f"Weather in {location}")
 
 def event_booking_check(tool_context: ToolContext, event_name: str, location: str) -> str:
+    """
+    Checks internal booking memory AND external open/close status.
+    """
     bookings = tool_context.state.get("event_bookings", [])
     booking_status = "❌ No internal booking record found."
     
