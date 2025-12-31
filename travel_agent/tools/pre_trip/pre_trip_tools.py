@@ -30,6 +30,7 @@ def _fetch_official_data(query: str, context_label: str) -> str:
                 title = result.get("title", "No Title")
                 text = result.get("snippet", "No snippet")
                 link = result.get("link", "No link")
+                # We format it so the LLM can easily cite it later
                 snippets.append(f"- **{title}**: {text}")
 
         if not snippets:
@@ -79,15 +80,15 @@ def check_visa_requirements(tool_context: ToolContext, destination_country: str)
 
     return "\n".join(reports)
 
-def check_medical_requirements(tool_context: ToolContext, destination_country: str) -> str:
-     query = (
+def check_medical_requirements(tool_context: ToolContext, destination_country: str) -> str:  
+    query = (
         f"official health entry requirements {destination_country} "
         f"mandatory vaccinations yellow fever certificate malaria prophylaxis "
         f"current disease outbreaks health declaration form required CDC WHO"
     )
     return _fetch_official_data(query, f"Medical Requirements ({destination_country})")
 
-def check_travel_advisory(tool_context: ToolContext, destination_country: str) -> str:  
+def check_travel_advisory(tool_context: ToolContext, destination_country: str) -> str:
     query = (
         f"latest travel advisory {destination_country} safety level "
         f"political situation civil unrest terrorism crime warning "
