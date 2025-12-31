@@ -17,7 +17,7 @@ def _fetch_official_data(query: str, context_label: str) -> str:
         "q": query,
         "api_key": api_key,
         "gl": "us", "hl": "en",
-        "num": 5  
+        "num": 5  # Increased to 5 to get more coverage
     }
 
     try:
@@ -49,6 +49,9 @@ def _fetch_official_data(query: str, context_label: str) -> str:
 
 
 def check_visa_requirements(tool_context: ToolContext, destination_country: str) -> str:
+    """
+    Checks specific visa rules including E-Visa, VOA, Validity, and Entry Count.
+    """
     passengers = tool_context.state.get("passengers", [])
     if not passengers:
         return "Error: No passengers found. Please identify travelers and nationalities first."
@@ -67,6 +70,7 @@ def check_visa_requirements(tool_context: ToolContext, destination_country: str)
 
     reports = []
     for nationality, names in nationality_map.items():
+        # UPDATED QUERY: Specifically targets the 4 points you requested
         query = (
             f"visa requirements for {nationality} citizens traveling to {destination_country} "
             f"official government site e-visa availability visa on arrival rules "
@@ -80,7 +84,11 @@ def check_visa_requirements(tool_context: ToolContext, destination_country: str)
 
     return "\n".join(reports)
 
-def check_medical_requirements(tool_context: ToolContext, destination_country: str) -> str:  
+def check_medical_requirements(tool_context: ToolContext, destination_country: str) -> str:
+    """
+    Checks mandatory vaccines and current health advisories.
+    """
+    # UPDATED QUERY: Targets entry requirements AND current conditions
     query = (
         f"official health entry requirements {destination_country} "
         f"mandatory vaccinations yellow fever certificate malaria prophylaxis "
@@ -89,6 +97,10 @@ def check_medical_requirements(tool_context: ToolContext, destination_country: s
     return _fetch_official_data(query, f"Medical Requirements ({destination_country})")
 
 def check_travel_advisory(tool_context: ToolContext, destination_country: str) -> str:
+    """
+    Checks safety levels and political stability.
+    """
+    # UPDATED QUERY: Targets political situation specifically
     query = (
         f"latest travel advisory {destination_country} safety level "
         f"political situation civil unrest terrorism crime warning "
@@ -97,7 +109,12 @@ def check_travel_advisory(tool_context: ToolContext, destination_country: str) -
     return _fetch_official_data(query, f"Travel Advisory ({destination_country})")
 
 def storm_monitor(tool_context: ToolContext, destination_country: str, travel_dates: str = "upcoming trip") -> str:
-    current_month = datetime.datetime.now().strftime("%B %Y")    
+    """
+    Checks weather forecast for specific dates.
+    """
+    current_month = datetime.datetime.now().strftime("%B %Y")
+    
+    # UPDATED QUERY: Targets the specific dates provided
     query = (
         f"weather forecast {destination_country} {travel_dates} "
         f"severe weather warnings storm alert hurricane typhoon cyclone "
