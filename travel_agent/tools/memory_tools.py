@@ -1,5 +1,8 @@
 import re
 from typing import Any
+from dateutil import parser as date_parser
+import dateparser 
+from datetime import datetime, timedelta
 from google.adk.tools.tool_context import ToolContext
 
 def memorize_list(key: str, value: Any, tool_context: ToolContext):
@@ -11,7 +14,13 @@ def memorize_list(key: str, value: Any, tool_context: ToolContext):
 
 def memorize(key: str, value: Any, tool_context: ToolContext):
     tool_context.state[key] = value
-    return {"status": f'Stored "{key}": "{value}"'}
+    return f"System Notification: Successfully saved content for key '{key}'."
+
+def recall(key: str, tool_context: ToolContext) -> str:
+    value = tool_context.state.get(key)
+    if not value:
+        return f"System Notification: No data found for key '{key}'."
+    return f"Memory Recall ({key}):\n{value}"
 
 def forget(key: str, value: Any, tool_context: ToolContext):
     if key not in tool_context.state: return {"status": f'Key "{key}" not found.'}
@@ -92,6 +101,92 @@ def get_latest_flight(tool_context: ToolContext) -> str:
     info = flights[-1].get('airline_info', 'Unknown')
     return info.split(' ')[0] if info else "Unknown"
 
+def get_latest_flight_details(tool_context: ToolContext) -> dict:
+    flights = tool_context.state.get("flights", [])
+    
+    if not flights: 
+        return {
+            "error": "No flights found in memory.", 
+            "flight_number": None, 
+            "date": None,
+            "status": "Empty"
+        }
+
+    last_flight = flights[-1]
+    raw_info = last_flight.get('airline_info', 'Unknown')
+    raw_sched = last_flight.get('scheduling', '')
+
+    match = re.search(r'([A-Z0-9]{2,3}\s?\d{3,4})', raw_info)
+    if match:
+        flight_number = match.group(1).replace(" ", "")
+    else:
+        flight_number = raw_info.split()[0] if raw_info else "Unknown"
+
+    try:
+        dt = date_parser.parse(raw_sched, fuzzy=True)
+        flight_date = dt.strftime("%Y-%m-%d")
+    except:
+        flight_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+
+    return {
+        "flight_number": flight_number,
+        "date": flight_date,
+        "raw_route": last_flight.get('route', 'Unknown'),
+        "status": "Found"
+    }
+
+
+
+def get_first_flight_details(tool_context: ToolContext) -> dict:
+    flights = tool_context.state.get("flights", [])
+    
+    if not flights: 
+        return {
+            "error": "No flights found.", 
+            "flight_number": None, 
+            "date": None, 
+            "status": "Empty"
+        }
+
+    first_flight = flights[0]
+    
+    raw_info = first_flight.get('airline_info', 'Unknown')
+    raw_sched = first_flight.get('scheduling', '') 
+
+    match = re.search(r'([A-Z0-9]{2,3}\s?\d{3,4})', raw_info)
+    flight_number = match.group(1).replace(" ", "") if match else "Unknown"
+
+    flight_date = None
+    
+    date_match = re.search(r'Departure:.*?on\s+(.*?)(?:,|\s+at)', raw_sched, re.IGNORECASE)
+    
+    if date_match:
+        date_str = date_match.group(1).strip() 
+        dt = dateparser.parse(date_str)
+        if dt:
+            flight_date = dt.strftime("%Y-%m-%d")
+
+    if not flight_date:
+        try:
+            first_part = raw_sched.split(',')[0] 
+            dt = dateparser.parse(first_part, fuzzy=True)
+            if dt:
+                flight_date = dt.strftime("%Y-%m-%d")
+        except:
+            pass
+
+    if not flight_date:
+        print(f"DEBUG: Date parsing failed for '{raw_sched}'. Using fallback.")
+        flight_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+
+    return {
+        "flight_number": flight_number,
+        "date": flight_date,
+        "raw_route": first_flight.get('route', 'Unknown'),
+        "status": "Found"
+    }
+
+
 def get_trip_summary(tool_context: ToolContext) -> str:
     try:
         flights = tool_context.state.get("flights", [])
@@ -114,14 +209,20 @@ def get_trip_summary(tool_context: ToolContext) -> str:
             except: unit_price = 0.0
 
             p_raw = str(flight.get('passengers', ''))
-            numbered_matches = re.findall(r'\d+\.\s*([^\d,]+)', p_raw) 
+            clean_text = re.sub(r'\d+\.', '', p_raw)
+            tokens = re.split(r',|\s+and\s+', clean_text, flags=re.IGNORECASE)
             
-            if numbered_matches:
-                p_list = [m.strip() for m in numbered_matches]
-            elif ',' in p_raw:
-                p_list = [p.strip() for p in p_raw.split(',') if p.strip()]
-            else:
-                p_list = [p_raw] if p_raw else []
+            p_list = [t.strip() for t in tokens if t.strip() and t.lower() != 'none']
+
+            if not p_list and global_seats:
+                raw_info = str(flight.get('airline_info', ''))
+                fn_match = re.search(r'([A-Z0-9]{2,3}\s?\d{3,4})', raw_info)
+                
+                if fn_match:
+                    f_id = fn_match.group(1).replace(" ", "")
+                    recovered_names = [b.get('passenger') for b in global_seats if f_id in str(b.get('flight', '')) and b.get('passenger')]
+                    if recovered_names:
+                        p_list = recovered_names
 
             pass_count = len(p_list) if p_list else 1
             flight_fare_total = unit_price * pass_count
@@ -129,8 +230,8 @@ def get_trip_summary(tool_context: ToolContext) -> str:
             seats_data = flight.get('seats') or flight.get('selected_seats')
             
             if not seats_data and global_seats:
-                flight_num = flight.get('airline_info', '').split(' ')[0]
-                seats_data = [s for s in global_seats if flight_num in str(s.get('flight', ''))]
+                current_id = locals().get('f_id', flight.get('airline_info', '').split(' ')[0])
+                seats_data = [s for s in global_seats if current_id in str(s.get('flight', ''))]
 
             seat_list = [] 
             seats_cost = 0.0
@@ -153,12 +254,12 @@ def get_trip_summary(tool_context: ToolContext) -> str:
                         seat_list.append(str(s))
 
             passenger_display = []
-            for idx, p_name in enumerate(p_list):
-                if idx < len(seat_list):
-                    assigned_seat = seat_list[idx]
-                    passenger_display.append(f"{idx+1}. {p_name} (**Seat: {assigned_seat}**)")
-                else:
-                    passenger_display.append(f"{idx+1}. {p_name}")
+            max_count = max(len(p_list), len(seat_list))
+            
+            for idx in range(max_count):
+                p_name = p_list[idx] if idx < len(p_list) else f"Guest {idx+1}"
+                assigned_seat = seat_list[idx] if idx < len(seat_list) else "Pending"
+                passenger_display.append(f"- {p_name} (**Seat: {assigned_seat}**)")
 
             display_str = "\n   " + "\n   ".join(passenger_display)
 
@@ -178,9 +279,9 @@ def get_trip_summary(tool_context: ToolContext) -> str:
 
         summary.append(f"\n### 💰 GRAND TOTAL: ${grand_total:.2f}")
         summary.append("-------------------------------------------\n")
+        summary.append("\n(SYSTEM INSTRUCTION: Display the text above VERBATIM to the user. Do not apologize. Do not summarize.)")
         
         return "\n".join(summary)
-
     except Exception as e:
         return f"System Error: {e}"
 
