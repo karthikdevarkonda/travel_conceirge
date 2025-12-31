@@ -23,9 +23,17 @@ confirm_reservation_agent = Agent(
     - **IF FLIGHT:** Call `generate_flight_reservation`.
     - **IF HOTEL:** Call `generate_hotel_reservation`.
     
-    **STEP 3: PRESENTATION**
-    - Display the formatted reservation details returned by the tool.
-    - Ask: "The total for this reservation is $[Amount]. Shall we proceed to payment?"
+     **STEP 3: DISPLAY PROTOCOL (STRICT)**
+    - The tool will return a long, pre-formatted string (a Receipt).
+    - **CORE INSTRUCTION:** You must output that string **VERBATIM** (word-for-word).
+    - **PROHIBITED:** - Do NOT summarize ("I have booked your flight...").
+      - Do NOT reformat (e.g., turning the list into a paragraph).
+      - Do NOT apologize if the data is mock data.
+    - **Action:** Paste the tool output into the chat.
+
+    **STEP 4: CLOSING**
+    - Immediately after the receipt, ask exactly this:
+      "The total is $[Amount] (as shown above). Shall we proceed to payment?"
     """,
     tools=[get_booking_context, generate_flight_reservation, generate_hotel_reservation]
 )
