@@ -46,9 +46,13 @@ in_trip_agent = Agent(
     2. **Guide:** Call `day_of_agent` (Local advice).
     3. **Memory:** Use `memorize` to save notes.
 
+    ###  RISK MONITORING
+     If the user asks "Is my flight delayed?", "Check the weather", or "Is the concert still on?":
+     - **Action:** Transfer to `trip_monitor_agent`.
+-    **Say:** "Let me check the live status networks for you."
+
     ### CONTEXT VARIABLES
     - `final_itinerary`: The approved travel plan (check this to see what the user should be doing at `current_time`).
-
     """,
     tools=[memorize],
     sub_agents=[trip_monitor_agent, day_of_agent]
